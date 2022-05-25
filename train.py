@@ -7,7 +7,7 @@ import random
 config = {"train_set_ratio": 0.6, 
           "epochs": 10,
           "batch_size": 60,
-          "considered days": 3}
+          "considered days": 7}
 
 class AirDataset(Dataset):
     def __init__(self, i):
@@ -45,7 +45,7 @@ class AirDataset(Dataset):
 #         x = x.squeeze(1) # (B, 1) -> (B)
 #         return x
 
-dataset_CO = AirDataset(0)
+dataset_CO = AirDataset(1)
 
 first_data = dataset_CO[0]
 features, labels = first_data
