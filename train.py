@@ -9,12 +9,10 @@ class ExampleDataset(Dataset):
         self.y = torch.from_numpy(xy[:, [0]])
         self.n_samples = xy.shape[0]
 
-    def __getitem__(self, index):
-        
+    def __getitem__(self, index):        
         return self.x[index], self.y[index]
 
     def __len__(self):
-        
         return self.n_samples
 
 dataset = ExampleDataset()
