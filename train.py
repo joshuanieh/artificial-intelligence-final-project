@@ -14,5 +14,5 @@ class ExampleDataset(Dataset):
         return self.x[index], self.y[index]
 
     def __len__(self):
-        "AAA"        
+           
         return self.n_samples
