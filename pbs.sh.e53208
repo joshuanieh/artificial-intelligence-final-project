@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "train.py", line 20, in <module>
+    dataset = ExampleDataset()
+  File "train.py", line 11, in __init__
+    self.x = np.concatenate((xy[0:-3].T, xy[1:-2].T, xy[2:-1].T), axis=1)
+  File "<__array_function__ internals>", line 6, in concatenate
+numpy.AxisError: axis 1 is out of bounds for array of dimension 1
