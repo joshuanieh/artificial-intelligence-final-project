@@ -83,7 +83,7 @@ for epoch in range(config["epochs"]):
     predictor_CO.train()
     for x, y in train_loader:
         optimizer.zero_grad()
-        x, y = x.to(device), y.to(device)
+        x, y = x.float().to(device), y.float().to(device)
         pred = predictor_CO(x)
         loss = criterion(pred, y)
         loss.backward()
@@ -95,7 +95,7 @@ for epoch in range(config["epochs"]):
     loss_record = []    
     predictor_CO.eval()
     for x, y in valid_loader:
-        x, y = x.to(device), y.to(device)
+        x, y = x.float().to(device), y.float().to(device)
         with torch.no_grad():
             pred = predictor_CO(x)
             loss = criterion(pred, y)
