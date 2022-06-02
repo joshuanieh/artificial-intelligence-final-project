@@ -6,8 +6,12 @@ import pandas as pd
 import random
 import os
 
+if not os.path.isdir('./data'):
+    os.mkdir('./data')
+!gdown --id '1kXEhAtn6JfpYtTsQ9BkJVxKxf47ASODk' --output data/keelung.csv
+        
 config = {"train_set_ratio": 0.6, 
-          "epochs": 2,
+          "epochs": 1000,
           "batch_size": 60,
           "considered_days": 3,
           "stop_early": 200,
@@ -19,7 +23,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 class AirDataset(Dataset):
     def __init__(self, i, name):
         #i = 1~6
-        xy = pd.read_csv("./drive/MyDrive/data/keelung.csv", encoding="Big5", skiprows=2, usecols=range(3,27))
+        xy = pd.read_csv("./data/keelung.csv", encoding="Big5", skiprows=2, usecols=range(3,27))
         xy = xy.apply(pd.to_numeric, errors='coerce')
         # print("origin data: ", xy)
         xy = xy.mean(axis=1, skipna=True, numeric_only=True).values
@@ -65,7 +69,9 @@ class Predictor(nn.Module):
         x = self.r2(x)
         x = self.l3(x)
         # print("x:", x)
-        x = x.squeeze(1)
+        # print(x.shape)
+        # x = x.squeeze(1)
+        # print(x.shape)
         return x
 
 dataset_CO    = AirDataset(1, "CO")
@@ -76,6 +82,7 @@ dataset_PM25  = AirDataset(5, "PM25")
 dataset_SO2   = AirDataset(6, "SO2")
 datasets = [dataset_CO, dataset_NO2, dataset_O3, dataset_PM10, dataset_PM25, dataset_SO2]
 # print([len(i) for i in datasets])
+print([i.name for i in datasets])
 
 predictor_CO   = Predictor(config["considered_days"])
 predictor_NO2  = Predictor(config["considered_days"])
@@ -85,16 +92,15 @@ predictor_PM25 = Predictor(config["considered_days"])
 predictor_SO2  = Predictor(config["considered_days"])
 predictors = [predictor_CO, predictor_NO2, predictor_O3, predictor_PM10, predictor_PM25, predictor_SO2]
 
-for i in range(0,1):
-  print(datasets[i].name)
-  train_set_size = int(config["train_set_ratio"] * len(datasets[i]))
-  valid_set_size = (len(datasets[i]) - train_set_size)//2
-  test_set_size = len(datasets[i]) - valid_set_size - train_set_size
-  test_set, valid_train_set = random_split(datasets[i], [test_set_size, valid_set_size + train_set_size], generator=torch.Generator().manual_seed(881228)) #Josh's birthday
-  test_loader = DataLoader(test_set, batch_size=config["batch_size"], shuffle=False, num_workers=3, pin_memory=True)
-
+for gas in range(0,6):
+  print(datasets[gas].name)
+  train_set_size = int(config["train_set_ratio"] * len(datasets[gas]))
+  valid_set_size = (len(datasets[gas]) - train_set_size)//2
+  test_set_size = len(datasets[gas]) - valid_set_size - train_set_size
+  test_set, valid_train_set = random_split(datasets[gas], [test_set_size, valid_set_size + train_set_size], generator=torch.Generator().manual_seed(881228)) #Josh's birthday
+  test_loader = DataLoader(test_set, batch_size=config["batch_size"], shuffle=False, num_workers=2, pin_memory=True)
   criterion = nn.MSELoss(reduction='mean')
-  optimizer = torch.optim.SGD(predictors[i].parameters(), lr=config['learning_rate'], momentum=config['momentum']) 
+  optimizer = torch.optim.SGD(predictors[gas].parameters(), lr=config['learning_rate'], momentum=config['momentum']) 
 
   if not os.path.isdir('./models'):
       os.mkdir('./models')
@@ -103,38 +109,50 @@ for i in range(0,1):
   count = 0
   for epoch in range(config["epochs"]):
     valid_set, train_set = random_split(valid_train_set, [valid_set_size, train_set_size], generator=torch.Generator().manual_seed(random.randint(0, 881227)))
-    train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=True, num_workers=3, pin_memory=True)
-    valid_loader = DataLoader(valid_set, batch_size=config["batch_size"], shuffle=True, num_workers=3, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=config["batch_size"], shuffle=True, num_workers=2, pin_memory=True)
+    valid_loader = DataLoader(valid_set, batch_size=config["batch_size"], shuffle=True, num_workers=2, pin_memory=True)
     
     # train
     loss_record = []
-    predictors[i].train()
+    predictors[gas].train()
     for x, y in train_loader:
+        mask = np.ones(len(y), dtype=bool)
+        for i in range(len(mask)):
+          if np.isnan(x[i]).any() or np.isnan(y[i]):
+            mask[i] = False
+        x = x[mask]
+        y = y[mask]
         optimizer.zero_grad()
         x, y = x.float().to(device), y.float().to(device)
         # print("x, y: ", x.shape, y.shape)
-        pred = predictors[i](x)
+        pred = predictors[gas](x)
         loss = criterion(pred, y)
         loss.backward()
         optimizer.step()
         loss_record.append(loss.detach().item())
-        print("--------------------------------------")
-        print("INSIDE")
-        print("x: ", x)
-        print("pred: ", pred)
-        print("grad: ", predictors[i].l1.weight.grad)
-        for param in predictors[i].parameters():
-          print("param: ", param.data)
+        # print("--------------------------------------")
+        # print("INSIDE")
+        # print("x: ", x)
+        # print("pred: ", pred)
+        # print("grad: ", predictors[gas].l1.weight.grad)
+        # for param in predictors[gas].parameters():
+        #   print("param: ", param.data)
     
     train_loss = sum(loss_record)/len(loss_record)
     
     # validation
     loss_record = []    
-    predictors[i].eval()
+    predictors[gas].eval()
     for x, y in valid_loader:
+        mask = np.ones(len(y), dtype=bool)
+        for i in range(len(mask)):
+          if np.isnan(x[i]).any() or np.isnan(y[i]):
+            mask[i] = False
+        x = x[mask]
+        y = y[mask]
         x, y = x.float().to(device), y.float().to(device)
         with torch.no_grad():
-            pred = predictors[i](x) 
+            pred = predictors[gas](x) 
             loss = criterion(pred, y)
 
         loss_record.append(loss.item())
@@ -143,7 +161,7 @@ for i in range(0,1):
     print(f'Epoch {epoch+1}/{config["epochs"]}: Train loss: {train_loss:.4f}, Valid loss: {valid_loss:.4f}')
     if valid_loss < lowest_loss:
         lowest_loss = valid_loss
-        torch.save(predictors[i].state_dict(), f"./models/{datasets[i].name}_best.ckpt")
+        torch.save(predictors[gas].state_dict(), f"./models/{datasets[gas].name}_best.ckpt")
         print("Ya! New model saved.")
         count = 0
     else: 
@@ -155,9 +173,15 @@ for i in range(0,1):
     
   # test
   for x, y in test_loader:
+      mask = np.ones(len(y), dtype=bool)
+      for i in range(len(mask)):
+        if np.isnan(x[i]).any() or np.isnan(y[i]):
+          mask[i] = False
+      x = x[mask]
+      y = y[mask]
       x, y = x.float().to(device), y.float().to(device)
       with torch.no_grad():
-          pred = predictors[i](x) 
+          pred = predictors[gas](x) 
           loss = criterion(pred, y)
 
       loss_record.append(loss.item())
