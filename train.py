@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import random
 import os
+import draw
+# Usage: draw.draw(guting = 0, banquio = 0, zhongli = 0, xitun = 0, tainan = 0, qianzhen = 0)
 
         
 config = {"train_set_ratio": 0.6, 
