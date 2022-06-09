@@ -35,8 +35,8 @@ class AirDataset(Dataset):
         xy = pd.read_csv(f'./data/{region}.csv', encoding="Big5", skiprows=2, usecols=range(3,27))
         xy = xy.apply(pd.to_numeric, errors='coerce')
         # print("origin data: ", xy)
-        xy = xy.mean(axis=1, skipna=True, numeric_only=True).values
-        xy = xy[None].T
+        self.mean = xy.mean(axis=1, skipna=True, numeric_only=True).values
+        xy = self.mean[None].T
         # print("mean: ", xy)
         self.x = np.concatenate([xy[len(xy)*(i-1)//6+j:len(xy)*i//6-config["considered_days"]+j] for j in range(config["considered_days"])], axis=1)
         # print(name)
