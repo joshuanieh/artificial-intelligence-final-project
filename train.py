@@ -6,17 +6,16 @@ import pandas as pd
 import random
 import os
 
-if not os.path.isdir('./data'):
-    os.mkdir('./data')
-!gdown --id '1kXEhAtn6JfpYtTsQ9BkJVxKxf47ASODk' --output data/keelung.csv
         
 config = {"train_set_ratio": 0.6, 
           "epochs": 1000,
           "batch_size": 60,
-          "considered_days": 3,
+          "considered_days": 7,
           "stop_early": 200,
-          "learning_rate": 0.001,
-          "momentum": 0.9}
+          "learning_rate": 0.0001,
+          "momentum": 0.9, 
+          "weight_decay": 0.000001,
+          "init": False}
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -33,6 +32,9 @@ class AirDataset(Dataset):
         # print(name)
         # print("x: ", self.x)
         self.y = xy[len(xy)*(i-1)//6+config["considered_days"]:len(xy)*i//6]
+        self.min, self.max = min(np.nanmin(self.x), np.nanmin(self.y)), max(np.nanmax(self.x), np.nanmax(self.y))
+        self.x = (self.x-self.min)/(self.max-self.min)
+        self.y = (self.y-self.min)/(self.max-self.min)
         self.name = name
 
     def __getitem__(self, index):
@@ -44,35 +46,42 @@ class AirDataset(Dataset):
 class Predictor(nn.Module):
     def __init__(self, i):
         super().__init__()
-        # self.layers = nn.Sequential(
-        #   nn.Linear(i, 16),
-        #   nn.ReLU(),
-        #   nn.Linear(16, 8),
-        #   nn.ReLU(),
-        #   nn.Linear(8, 1)
-        # )
-        self.l1  = nn.Linear(i, 16)
-        self.r1  = nn.ReLU()
-        self.l2 = nn.Linear(16, 8)
-        self.r2 = nn.ReLU()
-        self.l3 = nn.Linear(8, 1)
+        self.layers = nn.Sequential(
+          nn.Dropout(0.5),
+          nn.Linear(i, 16),
+          nn.ReLU(),
+          nn.Linear(16, 8),
+          nn.ReLU(),
+          nn.Linear(8, 1)
+        )
+        if config["init"]:
+          self.initialize_weights()
 
     def forward(self, x):
         # print("x: ", x.shape)
         # print("x: ", x)
-        # x = self.layers(x)
-        x = self.l1(x)
+        x = self.layers(x)
         # print("x1: ", x.shape)
         # print("x1: ", x)
-        x = self.r1(x)
-        x = self.l2(x)
-        x = self.r2(x)
-        x = self.l3(x)
         # print("x:", x)
         # print(x.shape)
         # x = x.squeeze(1)
         # print(x.shape)
         return x
+    
+    def initialize_weights(self):
+      for m in self.modules():
+        if isinstance(m, nn.Conv1d):
+          torch.nn.init.xavier_normal_(m.weight.data)
+          if m.bias is not None:
+            m.bias.data.zero_()
+        elif isinstance(m, nn.BatchNorm1d):
+          m.weight.data.fill_(1)
+          m.bias.data.zero_()
+        elif isinstance(m, nn.Linear):
+          torch.nn.init.normal_(m.weight.data, 0, 0.01)
+          # m.weight.data.normal_(0,0.01)
+          m.bias.data.zero_()
 
 dataset_CO    = AirDataset(1, "CO")
 dataset_NO2   = AirDataset(2, "NO2")
@@ -81,18 +90,23 @@ dataset_PM10  = AirDataset(4, "PM10")
 dataset_PM25  = AirDataset(5, "PM25")
 dataset_SO2   = AirDataset(6, "SO2")
 datasets = [dataset_CO, dataset_NO2, dataset_O3, dataset_PM10, dataset_PM25, dataset_SO2]
+data_min = [round(data.min, 4) for data in datasets]
+data_max = [round(data.max, 4) for data in datasets]
+print("min: ", data_min)
+print("max: ", data_max)
 # print([len(i) for i in datasets])
 print([i.name for i in datasets])
 
-predictor_CO   = Predictor(config["considered_days"])
-predictor_NO2  = Predictor(config["considered_days"])
-predictor_O3   = Predictor(config["considered_days"])
-predictor_PM10 = Predictor(config["considered_days"])
-predictor_PM25 = Predictor(config["considered_days"])
-predictor_SO2  = Predictor(config["considered_days"])
+predictor_CO   = Predictor(config["considered_days"]).to(device)
+predictor_NO2  = Predictor(config["considered_days"]).to(device)
+predictor_O3   = Predictor(config["considered_days"]).to(device)
+predictor_PM10 = Predictor(config["considered_days"]).to(device)
+predictor_PM25 = Predictor(config["considered_days"]).to(device)
+predictor_SO2  = Predictor(config["considered_days"]).to(device)
 predictors = [predictor_CO, predictor_NO2, predictor_O3, predictor_PM10, predictor_PM25, predictor_SO2]
-
-for gas in range(0,6):
+test_losses = []
+valid_losses = []
+for gas in range(6):
   print(datasets[gas].name)
   train_set_size = int(config["train_set_ratio"] * len(datasets[gas]))
   valid_set_size = (len(datasets[gas]) - train_set_size)//2
@@ -100,7 +114,7 @@ for gas in range(0,6):
   test_set, valid_train_set = random_split(datasets[gas], [test_set_size, valid_set_size + train_set_size], generator=torch.Generator().manual_seed(881228)) #Josh's birthday
   test_loader = DataLoader(test_set, batch_size=config["batch_size"], shuffle=False, num_workers=2, pin_memory=True)
   criterion = nn.MSELoss(reduction='mean')
-  optimizer = torch.optim.SGD(predictors[gas].parameters(), lr=config['learning_rate'], momentum=config['momentum']) 
+  optimizer = torch.optim.SGD(predictors[gas].parameters(), lr=config['learning_rate'], momentum=config["momentum"], weight_decay=config["weight_decay"]) 
 
   if not os.path.isdir('./models'):
       os.mkdir('./models')
@@ -187,3 +201,7 @@ for gas in range(0,6):
       loss_record.append(loss.item())
   test_loss = sum(loss_record)/len(loss_record)
   print(f'Test loss: {test_loss:.4f}')
+  test_losses.append(round(test_loss, 4))
+  valid_losses.append(round(lowest_loss, 4))
+print("test: ", test_losses)
+print("valid: ", valid_losses)
