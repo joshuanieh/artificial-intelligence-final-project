@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 if not os.path.isdir('./data'):
     os.mkdir('./data')
     
-!gdown --id '1-fhhnr-3al5qe-cX0aQIyhjeEEHzlx91' --output taiwan.png
 # !gdown --id '1-fhhnr-3al5qe-cX0aQIyhjeEEHzlx91' --output data/banquio.csv
 # !gdown --id '18i3hVfzcNKSvPg1SG-OSauulL9iD98mg' --output data/guting.csv
 # !gdown --id '17pgQbZ_6blkwADwbAmOswa6O9hwBLRNY' --output data/zhongli.csv
@@ -36,8 +35,8 @@ class AirDataset(Dataset):
         xy = pd.read_csv(f'./data/{region}.csv', encoding="Big5", skiprows=2, usecols=range(3,27))
         xy = xy.apply(pd.to_numeric, errors='coerce')
         # print("origin data: ", xy)
-        xy = xy.mean(axis=1, skipna=True, numeric_only=True).values
-        xy = xy[None].T
+        self.mean = xy.mean(axis=1, skipna=True, numeric_only=True).values
+        xy = self.mean[None].T
         # print("mean: ", xy)
         self.x = np.concatenate([xy[len(xy)*(i-1)//6+j:len(xy)*i//6-config["considered_days"]+j] for j in range(config["considered_days"])], axis=1)
         # print(name)
@@ -93,13 +92,14 @@ class Predictor(nn.Module):
           torch.nn.init.normal_(m.weight.data, 0, 0.01)
           # m.weight.data.normal_(0,0.01)
           m.bias.data.zero_()
+
 for region in regions:
-  dataset_CO    = AirDataset(1, "CO", region)
-  dataset_NO2   = AirDataset(2, "NO2", region)
-  dataset_O3    = AirDataset(3, "O3", region)
-  dataset_PM10  = AirDataset(4, "PM10", region)
-  dataset_PM25  = AirDataset(5, "PM25", region)
-  dataset_SO2   = AirDataset(6, "SO2", region)
+  dataset_CO    = AirDataset(1, region, "CO")
+  dataset_NO2   = AirDataset(2, region, "NO2")
+  dataset_O3    = AirDataset(3, region, "O3")
+  dataset_PM10  = AirDataset(4, region, "PM10")
+  dataset_PM25  = AirDataset(5, region, "PM25")
+  dataset_SO2   = AirDataset(6, region, "SO2")
   datasets = [dataset_CO, dataset_NO2, dataset_O3, dataset_PM10, dataset_PM25, dataset_SO2]
   data_min = [round(data.min, 4) for data in datasets]
   data_max = [round(data.max, 4) for data in datasets]
