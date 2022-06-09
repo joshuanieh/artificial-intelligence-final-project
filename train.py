@@ -186,7 +186,7 @@ for region in regions:
       print(f'Epoch {epoch+1}/{config["epochs"]}: Train loss: {train_loss:.4f}, Valid loss: {valid_loss:.4f}')
       if valid_loss < lowest_loss:
           lowest_loss = valid_loss
-          torch.save(predictors[gas].state_dict(), f"./models/{datasets[gas].name}_best.ckpt")
+          torch.save(predictors[gas].state_dict(), f"./models/{datasets[gas].name}_{region}_best.ckpt")
           print("Ya! New model saved.")
           count = 0
       else: 
