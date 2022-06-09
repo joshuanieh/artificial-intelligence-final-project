@@ -8,4 +8,6 @@ for i in range(6):
   Josh.eval()
   #print(datasets[i].mean[data.shape[0]//6*(i+1)-7-j:data.shape[0]//6*(i+1)-j])
   for j in range(6, -1, -1):
-    print((Josh(torch.from_numpy(datasets[i].mean[data.shape[0]//6*(i+1)-7-j:data.shape[0]//6*(i+1)-j]).float())*(datasets[i].max - datasets[i].min) + datasets[i].min).item())
+    mean = datasets[i].mean[data.shape[0]//6*(i+1)-config["considered_days"]-j:data.shape[0]//6*(i+1)-j]
+    mean = (mean - datasets[i].min)/(datasets[i].max - datasets[i].min)
+    print((Josh(torch.from_numpy(mean).float())*(datasets[i].max - datasets[i].min) + datasets[i].min).item())
