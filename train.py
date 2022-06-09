@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 import random
 import os
-import draw
-# Usage: draw.draw(guting = 0, banquio = 0, zhongli = 0, xitun = 0, tainan = 0, cianjhen = 0)
+import matplotlib.pyplot as plt
 
 if not os.path.isdir('./data'):
     os.mkdir('./data')
+    
+!gdown --id '1-fhhnr-3al5qe-cX0aQIyhjeEEHzlx91' --output taiwan.png
 # !gdown --id '1-fhhnr-3al5qe-cX0aQIyhjeEEHzlx91' --output data/banquio.csv
 # !gdown --id '18i3hVfzcNKSvPg1SG-OSauulL9iD98mg' --output data/guting.csv
 # !gdown --id '17pgQbZ_6blkwADwbAmOswa6O9hwBLRNY' --output data/zhongli.csv
@@ -185,7 +186,7 @@ for region in regions:
       print(f'Epoch {epoch+1}/{config["epochs"]}: Train loss: {train_loss:.4f}, Valid loss: {valid_loss:.4f}')
       if valid_loss < lowest_loss:
           lowest_loss = valid_loss
-          torch.save(predictors[gas].state_dict(), f"./models/{datasets[gas].name}_best.ckpt")
+          torch.save(predictors[gas].state_dict(), f"./models/{datasets[gas].name}_{region}_best.ckpt")
           print("Ya! New model saved.")
           count = 0
       else: 
