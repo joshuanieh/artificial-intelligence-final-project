@@ -21,7 +21,7 @@ config = {"train_set_ratio": 0.6,
           "epochs": 1000,
           "batch_size": 60,
           "considered_days": 7,
-          "stop_early": 200,
+          "stop_early": 100,
           "learning_rate": 0.0001,
           "momentum": 0.9, 
           "weight_decay": 0.000001,
@@ -93,6 +93,7 @@ class Predictor(nn.Module):
           # m.weight.data.normal_(0,0.01)
           m.bias.data.zero_()
 
+datasets = []
 for region in regions:
   dataset_CO    = AirDataset(1, region, "CO")
   dataset_NO2   = AirDataset(2, region, "NO2")
@@ -100,14 +101,15 @@ for region in regions:
   dataset_PM10  = AirDataset(4, region, "PM10")
   dataset_PM25  = AirDataset(5, region, "PM25")
   dataset_SO2   = AirDataset(6, region, "SO2")
-  datasets = [dataset_CO, dataset_NO2, dataset_O3, dataset_PM10, dataset_PM25, dataset_SO2]
-  data_min = [round(data.min, 4) for data in datasets]
-  data_max = [round(data.max, 4) for data in datasets]
+  datasets.append([dataset_CO, dataset_NO2, dataset_O3, dataset_PM10, dataset_PM25, dataset_SO2])
+
+  # print([len(i) for i in datasets])
+  # print([(region, i.name) for i in datasets])
+  for region in range(6):
+  data_min = [round(data.min, 4) for data in datasets[region]]
+  data_max = [round(data.max, 4) for data in datasets[region]]
   print("min: ", data_min)
   print("max: ", data_max)
-  # print([len(i) for i in datasets])
-  print([i.name for i in datasets])
-
   predictor_CO   = Predictor(config["considered_days"]).to(device)
   predictor_NO2  = Predictor(config["considered_days"]).to(device)
   predictor_O3   = Predictor(config["considered_days"]).to(device)
@@ -118,11 +120,11 @@ for region in regions:
   test_losses = []
   valid_losses = []
   for gas in range(6):
-    print(datasets[gas].name)
-    train_set_size = int(config["train_set_ratio"] * len(datasets[gas]))
-    valid_set_size = (len(datasets[gas]) - train_set_size)//2
-    test_set_size = len(datasets[gas]) - valid_set_size - train_set_size
-    test_set, valid_train_set = random_split(datasets[gas], [test_set_size, valid_set_size + train_set_size], generator=torch.Generator().manual_seed(881228)) #Josh's birthday
+    print(datasets[region][gas].name)
+    train_set_size = int(config["train_set_ratio"] * len(datasets[region][gas]))
+    valid_set_size = (len(datasets[region][gas]) - train_set_size)//2
+    test_set_size = len(datasets[region][gas]) - valid_set_size - train_set_size
+    test_set, valid_train_set = random_split(datasets[region][gas], [test_set_size, valid_set_size + train_set_size], generator=torch.Generator().manual_seed(881228)) #Josh's birthday
     test_loader = DataLoader(test_set, batch_size=config["batch_size"], shuffle=False, num_workers=2, pin_memory=True)
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.SGD(predictors[gas].parameters(), lr=config['learning_rate'], momentum=config["momentum"], weight_decay=config["weight_decay"]) 
@@ -186,7 +188,7 @@ for region in regions:
       print(f'Epoch {epoch+1}/{config["epochs"]}: Train loss: {train_loss:.4f}, Valid loss: {valid_loss:.4f}')
       if valid_loss < lowest_loss:
           lowest_loss = valid_loss
-          torch.save(predictors[gas].state_dict(), f"./models/{datasets[gas].name}_{region}_best.ckpt")
+          torch.save(predictors[gas].state_dict(), f"./models/{datasets[region][gas].name}_{region}_best.ckpt")
           print("Ya! New model saved.")
           count = 0
       else: 
