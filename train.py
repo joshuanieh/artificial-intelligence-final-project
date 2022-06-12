@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 
 if not os.path.isdir('./data'):
     os.mkdir('./data')
+
+if not os.path.isdir('./models'):
+    os.mkdir('./models')
     
 # !gdown --id '1-fhhnr-3al5qe-cX0aQIyhjeEEHzlx91' --output data/banquio.csv
 # !gdown --id '18i3hVfzcNKSvPg1SG-OSauulL9iD98mg' --output data/guting.csv
@@ -105,7 +108,8 @@ for region in regions:
 
   # print([len(i) for i in datasets])
   # print([(region, i.name) for i in datasets])
-  for region in range(6):
+
+for region in range(6):
   data_min = [round(data.min, 4) for data in datasets[region]]
   data_max = [round(data.max, 4) for data in datasets[region]]
   print("min: ", data_min)
@@ -188,7 +192,7 @@ for region in regions:
       print(f'Epoch {epoch+1}/{config["epochs"]}: Train loss: {train_loss:.4f}, Valid loss: {valid_loss:.4f}')
       if valid_loss < lowest_loss:
           lowest_loss = valid_loss
-          torch.save(predictors[gas].state_dict(), f"./models/{datasets[region][gas].name}_{region}_best.ckpt")
+          torch.save(predictors[gas].state_dict(), f"./models/{datasets[region][gas].name}_{regions[region]}_best.ckpt")
           print("Ya! New model saved.")
           count = 0
       else: 
