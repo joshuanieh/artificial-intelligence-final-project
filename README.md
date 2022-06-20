@@ -1,4 +1,4 @@
 # artificial-intelligence-final-project
-##How to run
+## How to run
 - Run train.py
 - Run predict.py
